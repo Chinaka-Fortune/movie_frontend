@@ -3,12 +3,15 @@ services:
     name: movie-frontend-3173
     env: static
     buildCommand: npm install && npm run build
-    staticPublishPath: build
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
     headers:
-      - path: /static/js/*.js
+      - path: /*.js
+        name: Content-Type
+        value: application/javascript
+      - path: /dist/*.js
         name: Content-Type
         value: application/javascript

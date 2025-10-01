@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import Swal from 'sweetalert2';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -11,11 +12,13 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('DEBUG: Submitting register form:', { email, phone, password });
     const result = await registerUser(email, phone, password);
+    console.log('DEBUG: Register result:', result);
     if (result.success) {
       navigate(result.redirect);
     } else {
-      window.Swal.fire({
+      Swal.fire({
         icon: 'error',
         title: 'Registration Failed',
         text: result.error,

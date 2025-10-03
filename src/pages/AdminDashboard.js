@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import Swal from 'sweetalert2';
@@ -6,6 +6,7 @@ import AddMovie from '../components/AddMovie';
 import SendMessage from '../components/SendMessage';
 import UserList from '../components/UserList';
 import VerifyToken from '../components/VerifyToken';
+import { deleteMovie } from '../utils/api';
 
 const AdminDashboard = () => {
   const [movies, setMovies] = useState([]);
@@ -26,12 +27,12 @@ const AdminDashboard = () => {
   };
 
   const handleImageError = (e) => {
-    console.log('DEBUG: Image failed to load, switching to placeholder');
+    console.error('DEBUG: Image failed to load for movie ID:', e.target.dataset.movieId);
     e.target.src = '/images/no-image.jpg';
-    e.target.onerror = null; // Prevent infinite error loop
+    e.target.onerror = null;
   };
 
-  const fetchTickets = async (retryCount = 0, maxRetries = 2) => {
+  const fetchTickets = useCallback(async (retryCount = 0, maxRetries = 2) => {
     try {
       console.log('DEBUG: Fetching tickets from:', `${process.env.REACT_APP_API_URL}/admin/tickets`);
       const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/tickets`, {
@@ -45,7 +46,6 @@ const AdminDashboard = () => {
         const message = errorData.message || `HTTP error! Status: ${response.status}`;
         if (response.status === 401 && retryCount < maxRetries) {
           console.log('DEBUG: 401 Unauthorized, retrying fetchTickets');
-          // Token might be expired; attempt logout and redirect to login
           logoutUser();
           navigate('/login');
           return;
@@ -85,7 +85,7 @@ const AdminDashboard = () => {
         });
       }
     }
-  };
+  }, [authTokens?.token, logoutUser, navigate]);
 
   useEffect(() => {
     if (!user?.is_admin) {
@@ -97,8 +97,8 @@ const AdminDashboard = () => {
 
     const fetchMovies = async () => {
       try {
-        console.log('DEBUG: Fetching movies from:', `${process.env.REACT_APP_API_URL}/movies`);
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/movies`, {
+        console.log('DEBUG: Fetching movies from:', `${process.env.REACT_APP_API_URL}/admin/movies`);
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/movies`, {
           headers: {
             Authorization: `Bearer ${authTokens?.token}`,
             'Content-Type': 'application/json',
@@ -177,7 +177,7 @@ const AdminDashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [authTokens?.token, user?.is_admin, navigate, logoutUser]);
+  }, [authTokens?.token, user?.is_admin, navigate, logoutUser, fetchTickets]);
 
   const handleSettingsUpdate = async (e) => {
     e.preventDefault();
@@ -220,63 +220,8 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDeleteMovie = async (movieId) => {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Delete Movie',
-      text: 'Are you sure you want to delete this movie? This will also delete associated tickets and payments.',
-      showCancelButton: true,
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, delete it!',
-      background: '#fff',
-      customClass: {
-        popup: 'shadow-lg',
-        confirmButton: 'btn btn-danger',
-        cancelButton: 'btn btn-secondary',
-      },
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/movies/${movieId}`, {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${authTokens?.token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.message || `HTTP error! Status: ${response.status}`);
-          }
-          setMovies(movies.filter((movie) => movie.id !== movieId));
-          setTickets(tickets.filter((ticket) => ticket.movie_id !== movieId));
-          Swal.fire({
-            icon: 'success',
-            title: 'Movie Deleted',
-            text: 'Movie and associated data deleted successfully',
-            confirmButtonColor: '#28a745',
-            background: '#fff',
-            customClass: {
-              popup: 'shadow-lg',
-              confirmButton: 'btn btn-success',
-            },
-          });
-        } catch (error) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: `Failed to delete movie: ${error.message}`,
-            confirmButtonColor: '#dc3545',
-            background: '#fff',
-            customClass: {
-              popup: 'shadow-lg',
-              confirmButton: 'btn btn-danger',
-            },
-          });
-        }
-      }
-    });
+  const handleDeleteMovie = (movieId) => {
+    deleteMovie(movieId, authTokens, setMovies, movies);
   };
 
   const handleLogout = () => {
@@ -354,6 +299,7 @@ const AdminDashboard = () => {
                       }
                       className="card-img-top"
                       alt={movie.title || 'Movie'}
+                      data-movie-id={movie.id}
                       onError={handleImageError}
                     />
                     <div className="card-body">

@@ -11,6 +11,20 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid Email',
+        text: 'Please enter a valid email address',
+        confirmButtonColor: '#dc3545',
+        background: '#fff',
+        customClass: {
+          popup: 'shadow-lg',
+          confirmButton: 'btn btn-danger'
+        }
+      });
+      return;
+    }
     const result = await loginUser(email, password);
     if (result.success) {
       navigate(result.redirect);

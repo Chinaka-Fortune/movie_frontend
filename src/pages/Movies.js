@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import Swal from 'sweetalert2';
 import Select from 'react-select';
+import { fetchMovies } from '../utils/api';
 
 const Movies = () => {
   const [movies, setMovies] = useState([]);
@@ -34,20 +35,9 @@ const Movies = () => {
 
     let isMounted = true;
 
-    const fetchMovies = async () => {
+    const loadMovies = async () => {
       try {
-        console.log('DEBUG: Fetching movies from:', `${process.env.REACT_APP_API_URL}/movies`);
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/movies`, {
-          headers: {
-            Authorization: `Bearer ${authTokens?.token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`HTTP error! Status: ${response.status}, Response: ${text}`);
-        }
-        const data = await response.json();
+        const data = await fetchMovies(authTokens);
         console.log('DEBUG: Movies fetched:', data);
         if (isMounted) {
           setMovies(data);
@@ -75,12 +65,18 @@ const Movies = () => {
       }
     };
 
-    fetchMovies();
+    loadMovies();
 
     return () => {
       isMounted = false;
     };
-  }, [authTokens?.token, user?.id, navigate]);
+  }, [authTokens?.token, user, navigate]);
+
+  useEffect(() => {
+    if (movies.length > 0 && !movieId) {
+      setMovieId(movies[0].id);
+    }
+  }, [movies, movieId]);
 
   const handlePurchase = async (e) => {
     e.preventDefault();
@@ -158,7 +154,15 @@ const Movies = () => {
         </button>
       </div>
       {movies.length === 0 ? (
-        <p>No movies available.</p>
+        <div className="alert alert-warning" role="alert">
+          No movies available.
+          <button
+            className="btn btn-sm btn-outline-primary ms-2"
+            onClick={() => fetchMovies(authTokens)}
+          >
+            Retry
+          </button>
+        </div>
       ) : (
         <div className="row g-4">
           {movies.map((movie) => (

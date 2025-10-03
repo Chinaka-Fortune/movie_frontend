@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import Select from 'react-select';
+import { deleteUser, deleteTicket, fetchMovies } from '../utils/api';
+import Swal from 'sweetalert2';
 
 const SendMessage = () => {
   const [movies, setMovies] = useState([]);
@@ -22,6 +24,10 @@ const SendMessage = () => {
   const [selectedTicket, setSelectedTicket] = useState('');
   const { authTokens } = useContext(AuthContext);
 
+  const is_valid_email = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  };
+
   const countryCodes = [
     { value: '+234', label: '+234 (Nigeria)' },
     { value: '+1', label: '+1 (USA)' },
@@ -30,38 +36,6 @@ const SendMessage = () => {
   ];
 
   useEffect(() => {
-    const fetchMovies = async () => {
-      try {
-        console.log('DEBUG: Fetching movies from:', `${process.env.REACT_APP_API_URL}/movies`);
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/movies`, {
-          headers: {
-            Authorization: `Bearer ${authTokens?.token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
-        console.log('DEBUG: SendMessage movies fetched:', data);
-        setMovies(Array.isArray(data) ? data : []);
-        if (data.length > 0) {
-          setMovieId(data[0].id);
-        }
-      } catch (error) {
-        console.error('DEBUG: Fetch movies error:', error);
-        window.Swal.fire({
-          icon: 'error',
-          title: 'Network Error',
-          text: `Failed to fetch movies: ${error.message}`,
-          confirmButtonColor: '#dc3545',
-          background: '#fff',
-          customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
-        });
-      }
-    };
-
     const fetchTickets = async () => {
       try {
         console.log('DEBUG: Fetching tickets from:', `${process.env.REACT_APP_API_URL}/admin/tickets`);
@@ -88,7 +62,7 @@ const SendMessage = () => {
         }
       } catch (error) {
         console.error('DEBUG: Fetch tickets error:', error);
-        window.Swal.fire({
+        Swal.fire({
           icon: 'error',
           title: 'Network Error',
           text: `Failed to fetch tickets: ${error.message}`,
@@ -99,11 +73,16 @@ const SendMessage = () => {
       }
     };
 
-    Promise.all([fetchMovies(), fetchTickets()]);
+    Promise.all([fetchMovies(authTokens).then(data => {
+      setMovies(data);
+      if (data.length > 0) {
+        setMovieId(data[0].id);
+      }
+    }), fetchTickets()]);
   }, [authTokens?.token]);
 
   const showError = (message) => {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Error',
       text: message,
@@ -114,7 +93,7 @@ const SendMessage = () => {
   };
 
   const showSuccess = (title, message) => {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'success',
       title: title,
       text: message,
@@ -124,27 +103,7 @@ const SendMessage = () => {
     });
   };
 
-  const showConfirm = (title, text, callback) => {
-    window.Swal.fire({
-      icon: 'warning',
-      title: title,
-      text: text,
-      showCancelButton: true,
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, delete it!',
-      background: '#fff',
-      customClass: {
-        popup: 'shadow-lg',
-        confirmButton: 'btn btn-danger',
-        cancelButton: 'btn btn-secondary',
-      },
-    }).then((result) => {
-      if (result.isConfirmed) {
-        callback();
-      }
-    });
-  };
+  const isValidPhone = (phone) => /^\+?\d{10,15}$/.test(phone.trim());
 
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
@@ -152,8 +111,15 @@ const SendMessage = () => {
       showError('Please fill in all fields');
       return;
     }
+    const phoneList = phone.split(',').map((p) => p.trim());
+    const fullPhone = phoneList.map((p) => `${countryCode}${p}`).join(',');
+    for (const p of phoneList) {
+      if (!isValidPhone(`${countryCode}${p}`)) {
+        showError(`Invalid phone number: ${p}`);
+        return;
+      }
+    }
     try {
-      const fullPhone = phone.split(',').map((p) => `${countryCode}${p.trim()}`).join(',');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/send-event-email`, {
         method: 'POST',
         headers: {
@@ -187,8 +153,15 @@ const SendMessage = () => {
       showError('Please fill in all fields');
       return;
     }
+    const phoneList = phone.split(',').map((p) => p.trim());
+    const fullPhone = phoneList.map((p) => `${countryCode}${p}`).join(',');
+    for (const p of phoneList) {
+      if (!isValidPhone(`${countryCode}${p}`)) {
+        showError(`Invalid phone number: ${p}`);
+        return;
+      }
+    }
     try {
-      const fullPhone = phone.split(',').map((p) => `${countryCode}${p.trim()}`).join(',');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/send-whatsapp`, {
         method: 'POST',
         headers: {
@@ -224,26 +197,8 @@ const SendMessage = () => {
       showError('Please enter a User ID');
       return;
     }
-    showConfirm('Delete User', 'Are you sure you want to delete this user? This will also delete their payments and tickets.', async () => {
-      try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/users/${userId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${authTokens?.token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const data = await response.json();
-        if (response.status === 200) {
-          showSuccess('User Deleted', 'User deleted successfully');
-          setUserId('');
-        } else {
-          showError(data.message || 'Failed to delete user');
-        }
-      } catch (error) {
-        showError(`Network error: ${error.message}`);
-      }
-    });
+    deleteUser(userId, authTokens);
+    setUserId('');
   };
 
   const handleDeleteTicket = async (e) => {
@@ -252,26 +207,8 @@ const SendMessage = () => {
       showError('Please enter a Ticket ID');
       return;
     }
-    showConfirm('Delete Ticket', 'Are you sure you want to delete this ticket?', async () => {
-      try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/tickets/${ticketId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${authTokens?.token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const data = await response.json();
-        if (response.status === 200) {
-          showSuccess('Ticket Deleted', 'Ticket deleted successfully');
-          setTicketId('');
-        } else {
-          showError(data.message || 'Failed to delete ticket');
-        }
-      } catch (error) {
-        showError(`Network error: ${error.message}`);
-      }
-    });
+    deleteTicket(ticketId, authTokens);
+    setTicketId('');
   };
 
   const handleVipTicketSubmit = async (e) => {
@@ -280,8 +217,16 @@ const SendMessage = () => {
       showError('Please fill in all fields');
       return;
     }
+    const fullVipPhone = `${vipCountryCode}${vipPhone.trim()}`;
+    if (vipMethod === 'email' && !is_valid_email(vipRecipient)) {
+      showError(`Invalid email format: ${vipRecipient}`);
+      return;
+    }
+    if (!isValidPhone(fullVipPhone)) {
+      showError(`Invalid phone format: ${vipPhone}`);
+      return;
+    }
     try {
-      const fullVipPhone = `${vipCountryCode}${vipPhone.trim()}`;
       const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/send-vip-ticket`, {
         method: 'POST',
         headers: {
@@ -360,6 +305,13 @@ const SendMessage = () => {
       showError('Please fill in all fields');
       return;
     }
+    const emailList = emailReminderRecipients.split(',').map((e) => e.trim());
+    for (const e of emailList) {
+      if (!is_valid_email(e)) {
+        showError(`Invalid email format: ${e}`);
+        return;
+      }
+    }
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/send-reminder`, {
         method: 'POST',
@@ -370,7 +322,7 @@ const SendMessage = () => {
         body: JSON.stringify({
           movie_id: parseInt(movieId),
           recipients: emailReminderRecipients,
-          phones: emailReminderRecipients, // Backend expects same list for simplicity
+          phones: emailReminderRecipients,
           method: 'email',
           message: reminderMessage,
         }),
@@ -400,8 +352,15 @@ const SendMessage = () => {
       showError('Please fill in all fields');
       return;
     }
+    const phoneList = whatsappReminderRecipients.split(',').map((p) => p.trim());
+    const fullPhones = phoneList.map((p) => `${whatsappCountryCode}${p}`).join(',');
+    for (const p of phoneList) {
+      if (!isValidPhone(`${whatsappCountryCode}${p}`)) {
+        showError(`Invalid phone number: ${p}`);
+        return;
+      }
+    }
     try {
-      const fullPhones = whatsappReminderRecipients.split(',').map((p) => `${whatsappCountryCode}${p.trim()}`).join(',');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/send-reminder`, {
         method: 'POST',
         headers: {
@@ -449,6 +408,15 @@ const SendMessage = () => {
   const handleMovieSelect = (selectedOption) => {
     setMovieId(selectedOption ? selectedOption.value : '');
   };
+
+  useEffect(() => {
+    if (movies.length > 0 && !movieId) {
+      setMovieId(movies[0].id);
+    }
+    if (tickets.length > 0 && !selectedTicket) {
+      setSelectedTicket(tickets[0].id);
+    }
+  }, [movies, movieId, tickets, selectedTicket]);
 
   return (
     <div className="container mt-5">

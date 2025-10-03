@@ -44,6 +44,12 @@ const VerifyToken = () => {
     fetchTickets();
   }, [authTokens?.token]);
 
+  useEffect(() => {
+    if (tickets.length > 0 && !selectedTicket) {
+      setSelectedTicket(tickets[0].id);
+    }
+  }, [tickets, selectedTicket]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTicket) {
@@ -83,10 +89,30 @@ const VerifyToken = () => {
       if (response.status === 200) {
         setResult(data);
       } else {
-        setResult({ message: data.message || 'Invalid token' });
+        const msg = data.message || 'Invalid token';
+        setResult({ message: msg });
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: msg,
+          confirmButtonColor: '#dc3545',
+          background: '#fff',
+          customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
+          footer: '<button class="btn btn-sm btn-outline-primary" onclick="this.closest(\'.swal2-container\').querySelector(\'.swal2-confirm\').click(); window.location.reload();">Retry</button>',
+        });
       }
     } catch (error) {
-      setResult({ message: `Error verifying token: ${error.message}` });
+      const msg = `Error verifying token: ${error.message}`;
+      setResult({ message: msg });
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: msg,
+        confirmButtonColor: '#dc3545',
+        background: '#fff',
+        customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
+        footer: '<button class="btn btn-sm btn-outline-primary" onclick="this.closest(\'.swal2-container\').querySelector(\'.swal2-confirm\').click(); window.location.reload();">Retry</button>',
+      });
     }
   };
 

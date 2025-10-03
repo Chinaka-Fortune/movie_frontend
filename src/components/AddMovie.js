@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import PropTypes from 'prop-types';
 import Swal from 'sweetalert2';
+import { deleteMovie } from '../utils/api';
 
 const AddMovie = ({ movies = [], setMovies }) => {
   const [title, setTitle] = useState('');
@@ -38,28 +39,6 @@ const AddMovie = ({ movies = [], setMovies }) => {
     });
   };
 
-  const showConfirm = (title, text, callback) => {
-    Swal.fire({
-      icon: 'warning',
-      title: title,
-      text: text,
-      showCancelButton: true,
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, delete it!',
-      background: '#fff',
-      customClass: {
-        popup: 'shadow-lg',
-        confirmButton: 'btn btn-danger',
-        cancelButton: 'btn btn-secondary'
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        callback();
-      }
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title || !premiereDate || !flierImage || !price) {
@@ -88,13 +67,15 @@ const AddMovie = ({ movies = [], setMovies }) => {
         setPremiereDate('');
         setFlierImage(null);
         setPrice('');
-        setMovies([...movies, { 
-          id: data.id || movies.length + 1, 
-          title, 
-          premiere_date: premiereDate, 
-          price: parseFloat(price).toFixed(2),
-          flier_image: URL.createObjectURL(flierImage) // Temporary for frontend display
-        }]);
+        // Fetch updated movies list
+        const moviesResponse = await fetch(`${process.env.REACT_APP_API_URL}/admin/movies`, {
+          headers: {
+            Authorization: `Bearer ${authTokens?.token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const updatedMovies = await moviesResponse.json();
+        setMovies(updatedMovies);
       } else {
         showError(data.message || 'Failed to add movie');
       }
@@ -104,29 +85,8 @@ const AddMovie = ({ movies = [], setMovies }) => {
     }
   };
 
-  const handleDelete = async (movieId) => {
-    showConfirm('Delete Movie', 'Are you sure you want to delete this movie? This will also delete associated tickets and payments.', async () => {
-      try {
-        console.log('DEBUG: Deleting movie with URL:', `${process.env.REACT_APP_API_URL}/admin/movies/${movieId}`);
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/movies/${movieId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${authTokens?.token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        const data = await response.json();
-        if (response.status === 200) {
-          showSuccess('Movie Deleted', 'Movie deleted successfully');
-          setMovies(movies.filter(movie => movie.id !== movieId));
-        } else {
-          showError(data.message || 'Failed to delete movie');
-        }
-      } catch (error) {
-        console.error('DEBUG: Network error:', error);
-        showError(`Network error: ${error.message}`);
-      }
-    });
+  const handleDelete = (movieId) => {
+    deleteMovie(movieId, authTokens, setMovies, movies);
   };
 
   return (

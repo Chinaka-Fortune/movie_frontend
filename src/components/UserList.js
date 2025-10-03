@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
-import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import Swal from 'sweetalert2';
+import { deleteUser } from '../utils/api';
+import { deleteMovie } from '../utils/api';
 
 const UserList = () => {
   const [users, setUsers] = useState([]);
@@ -10,22 +12,46 @@ const UserList = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/admin/users', {
-          headers: { Authorization: `Bearer ${authTokens?.token}` }
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/users`, {
+          headers: { Authorization: `Bearer ${authTokens?.token}` },
         });
-        setUsers(response.data);
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.message || 'Error fetching users');
+        }
+        const data = await response.json();
+        setUsers(data);
       } catch (error) {
-        alert('Error fetching users: ' + (error.response?.data?.message || error.message));
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: `Error fetching users: ${error.message}`,
+          confirmButtonColor: '#dc3545',
+          background: '#fff',
+          customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
+        });
       }
     };
     const fetchMovies = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/movies', {
-          headers: { Authorization: `Bearer ${authTokens?.token}` }
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/movies`, {
+          headers: { Authorization: `Bearer ${authTokens?.token}` },
         });
-        setMovies(response.data);
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.message || 'Error fetching movies');
+        }
+        const data = await response.json();
+        setMovies(data);
       } catch (error) {
-        alert('Error fetching movies: ' + (error.response?.data?.message || error.message));
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: `Error fetching movies: ${error.message}`,
+          confirmButtonColor: '#dc3545',
+          background: '#fff',
+          customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
+        });
       }
     };
     if (authTokens) {
@@ -34,17 +60,8 @@ const UserList = () => {
     }
   }, [authTokens]);
 
-  const handleDeleteMovie = async (movieId) => {
-    if (!window.confirm('Are you sure you want to delete this movie?')) return;
-    try {
-      await axios.delete(`http://localhost:5000/api/admin/movies/${movieId}`, {
-        headers: { Authorization: `Bearer ${authTokens?.token}` }
-      });
-      setMovies(movies.filter(m => m.id !== movieId));
-      alert('Movie deleted');
-    } catch (error) {
-      alert(error.response?.data?.message || 'Error deleting movie');
-    }
+  const handleDeleteMovie = (movieId) => {
+    deleteMovie(movieId, authTokens, setMovies, movies);
   };
 
   return (
@@ -60,27 +77,36 @@ const UserList = () => {
                 <th>Phone</th>
                 <th>Payments</th>
                 <th>Tickets</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map(user => (
+              {users.map((user) => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
                   <td>{user.email}</td>
                   <td>{user.phone}</td>
                   <td>
-                    {user.payments.map(p => (
+                    {user.payments.map((p) => (
                       <div key={p.id}>
                         ID: {p.id}, Movie: {p.movie_id}, Amount: {p.amount}, Status: {p.status}
                       </div>
                     ))}
                   </td>
                   <td>
-                    {user.tickets.map(t => (
+                    {user.tickets.map((t) => (
                       <div key={t.id}>
                         Token: {t.token}, Movie: {t.movie_id}
                       </div>
                     ))}
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => deleteUser(user.id, authTokens)}
+                      className="btn btn-danger btn-sm"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -90,7 +116,7 @@ const UserList = () => {
 
         <h3 className="card-title h5 mt-4 mb-4">Movies (Admin)</h3>
         <div className="row row-cols-1 row-cols-md-2 g-4">
-          {movies.map(movie => (
+          {movies.map((movie) => (
             <div key={movie.id} className="col">
               <div className="card h-100">
                 <div className="card-body">

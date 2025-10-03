@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import { AuthContext } from '../context/AuthContext';
 
 const PaymentCallback = () => {
   const [status, setStatus] = useState('Verifying payment...');
   const navigate = useNavigate();
   const location = useLocation();
+  const { authTokens } = useContext(AuthContext);
 
   useEffect(() => {
     const verifyPayment = async () => {
@@ -29,7 +31,7 @@ const PaymentCallback = () => {
         const response = await fetch(`${process.env.REACT_APP_API_URL}/payments/verify/${reference}`, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${authTokens?.token}`,
           },
         });
         const data = await response.json();
@@ -72,7 +74,7 @@ const PaymentCallback = () => {
       }
     };
     verifyPayment();
-  }, [location, navigate]);
+  }, [location, navigate, authTokens?.token]);
 
   return (
     <div className="container my-4 text-center">

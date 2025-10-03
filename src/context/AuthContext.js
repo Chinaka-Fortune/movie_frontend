@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
 export const AuthContext = createContext();
@@ -12,14 +12,14 @@ export const AuthProvider = ({ children }) => {
   );
   const [loading, setLoading] = useState(true);
 
-  const logoutUser = () => {
+  const logoutUser = useCallback(() => {
     localStorage.removeItem('authTokens');
     setAuthTokens(null);
     setUser(null);
     return { redirect: '/login' };
-  };
+  }, []);
 
-  const loginUser = async (email, password) => {
+  const loginUser = useCallback(async (email, password) => {
     try {
       console.log('DEBUG: Logging in with URL:', `${process.env.REACT_APP_API_URL}/login`);
       const response = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
@@ -40,9 +40,9 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       return { success: false, error: 'Error logging in: ' + e.message };
     }
-  };
+  }, []);
 
-  const registerUser = async (email, phone, password) => {
+  const registerUser = useCallback(async (email, phone, password) => {
     try {
       console.log('DEBUG: Registering with URL:', `${process.env.REACT_APP_API_URL}/register`);
       const response = await fetch(`${process.env.REACT_APP_API_URL}/register`, {
@@ -59,10 +59,12 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       return { success: false, error: 'Error registering user: ' + e.message };
     }
-  };
+  }, [loginUser]);
 
   useEffect(() => {
     let isMounted = true;
+    const maxRetries = 2;
+    let retryCount = 0;
 
     const verifyToken = async () => {
       if (authTokens && isMounted) {
@@ -73,12 +75,22 @@ export const AuthProvider = ({ children }) => {
           if (response.ok) {
             const decoded = jwtDecode(authTokens.token);
             setUser(decoded);
+          } else if (response.status === 401 && retryCount < maxRetries) {
+            retryCount++;
+            console.log(`DEBUG: Retrying token verification, attempt ${retryCount}`);
+            setTimeout(() => verifyToken(), 1000);
           } else {
             logoutUser();
           }
         } catch (e) {
           console.error('DEBUG: Invalid token:', e);
-          logoutUser();
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`DEBUG: Retrying token verification, attempt ${retryCount}`);
+            setTimeout(() => verifyToken(), 1000);
+          } else {
+            logoutUser();
+          }
         }
       }
       if (isMounted) setLoading(false);
@@ -89,7 +101,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [authTokens?.token]);
+  }, [authTokens?.token, logoutUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const contextData = useMemo(
     () => ({
@@ -98,8 +110,9 @@ export const AuthProvider = ({ children }) => {
       registerUser,
       logoutUser,
       authTokens,
+      loading,
     }),
-    [user, authTokens]
+    [user, authTokens, loading, loginUser, registerUser, logoutUser]
   );
 
   return (
@@ -108,3 +121,5 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+export default AuthProvider;

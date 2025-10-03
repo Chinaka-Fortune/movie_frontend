@@ -13,6 +13,48 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('DEBUG: Submitting register form:', { email, phone, password });
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid Email',
+        text: 'Please enter a valid email address',
+        confirmButtonColor: '#dc3545',
+        background: '#fff',
+        customClass: {
+          popup: 'shadow-lg',
+          confirmButton: 'btn btn-danger'
+        }
+      });
+      return;
+    }
+    if (!/^\+?\d{10,15}$/.test(phone)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid Phone',
+        text: 'Please enter a valid phone number',
+        confirmButtonColor: '#dc3545',
+        background: '#fff',
+        customClass: {
+          popup: 'shadow-lg',
+          confirmButton: 'btn btn-danger'
+        }
+      });
+      return;
+    }
+    if (password.length < 8) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid Password',
+        text: 'Password must be at least 8 characters long',
+        confirmButtonColor: '#dc3545',
+        background: '#fff',
+        customClass: {
+          popup: 'shadow-lg',
+          confirmButton: 'btn btn-danger'
+        }
+      });
+      return;
+    }
     const result = await registerUser(email, phone, password);
     console.log('DEBUG: Register result:', result);
     if (result.success) {

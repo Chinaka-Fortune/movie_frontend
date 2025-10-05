@@ -116,13 +116,13 @@ const AddMovie = ({ movies = [], setMovies }) => {
             />
           </div>
           <div className="mb-3">
-            <label className="form-label fw-bold">Price (NGN)</label>
+            <label className="form-label fw-bold">Regular Price (NGN)</label>
             <input
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               className="form-control"
-              placeholder="Enter movie price (e.g., 13000.00)"
+              placeholder="Enter regular price (e.g., 13000.00)"
               step="0.01"
               min="0"
               required

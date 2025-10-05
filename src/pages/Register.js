@@ -10,6 +10,19 @@ const Register = () => {
   const { registerUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  const handlePhoneChange = (e) => {
+    // Sanitize phone number: remove non-digits except leading +
+    const value = e.target.value.replace(/[^+\d]/g, '');
+    setPhone(value);
+  };
+
+  const handlePhonePaste = (e) => {
+    // Handle pasted phone number
+    const pasted = e.clipboardData.getData('text').replace(/[^+\d]/g, '');
+    setPhone(pasted);
+    e.preventDefault();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('DEBUG: Submitting register form:', { email, phone, password });
@@ -31,7 +44,7 @@ const Register = () => {
       Swal.fire({
         icon: 'error',
         title: 'Invalid Phone',
-        text: 'Please enter a valid phone number',
+        text: 'Please enter a valid phone number (e.g., +2348186211974 or 08186211974)',
         confirmButtonColor: '#dc3545',
         background: '#fff',
         customClass: {
@@ -98,9 +111,11 @@ const Register = () => {
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={handlePhoneChange}
+                    onPaste={handlePhonePaste}
                     className="form-control"
-                    placeholder="Enter phone number"
+                    placeholder="Enter phone number (e.g., +2348186211974)"
+                    pattern="\+?\d{10,15}"
                     required
                   />
                 </div>

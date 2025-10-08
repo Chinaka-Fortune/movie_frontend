@@ -20,7 +20,7 @@ const PaymentCallback = () => {
       });
       const data = await response.json();
       console.log('DEBUG: Verification response:', data, 'Status:', response.status);
-      if (response.status === 200) {
+      if (response.status === 200 && data.ticket_token) {
         setStatus(`Payment verified! Ticket token: ${data.ticket_token} (${data.ticket_type})`);
         Swal.fire({
           icon: 'success',
@@ -32,11 +32,12 @@ const PaymentCallback = () => {
         });
         setTimeout(() => navigate(`/payment-status?reference=${reference}`), 10000);
       } else {
-        setStatus(`Payment verification failed: ${data.message || 'Unknown error'}`);
+        const errorMessage = data.message || 'Unknown error';
+        setStatus(`Payment verification failed: ${errorMessage}`);
         Swal.fire({
           icon: 'error',
           title: 'Payment Error',
-          text: `${data.message || 'Unknown error'} ${data.error ? JSON.stringify(data.error) : ''}`,
+          text: `${errorMessage}${data.error ? `: ${JSON.stringify(data.error)}` : ''}`,
           confirmButtonColor: '#dc3545',
           background: '#fff',
           customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },

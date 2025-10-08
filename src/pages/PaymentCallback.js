@@ -9,58 +9,46 @@ const PaymentCallback = () => {
   const location = useLocation();
   const { authTokens } = useContext(AuthContext);
 
-  useEffect(() => {
-    const verifyPayment = async () => {
-      try {
-        const params = new URLSearchParams(location.search);
-        const reference = params.get('reference') || params.get('trxref');
-        if (!reference) {
-          setStatus('Error: No payment reference provided');
-          Swal.fire({
-            icon: 'error',
-            title: 'Payment Error',
-            text: 'No payment reference provided',
-            confirmButtonColor: '#dc3545',
-            background: '#fff',
-            customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
-          });
-          setTimeout(() => navigate('/movies'), 3000);
-          return;
-        }
-        console.log('DEBUG: Verifying payment with reference:', reference);
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/payments/verify/${reference}`, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authTokens?.token}`,
-          },
+  const verifyPayment = async (reference, retryCount = 0, maxRetries = 2) => {
+    try {
+      console.log('DEBUG: Verifying payment with reference:', reference);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/payments/verify/${reference}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authTokens?.token}`,
+        },
+      });
+      const data = await response.json();
+      console.log('DEBUG: Verification response:', data, 'Status:', response.status);
+      if (response.status === 200) {
+        setStatus(`Payment verified! Ticket token: ${data.ticket_token} (${data.ticket_type})`);
+        Swal.fire({
+          icon: 'success',
+          title: 'Payment Successful',
+          text: `Ticket Token: ${data.ticket_token} (${data.ticket_type})`,
+          confirmButtonColor: '#28a745',
+          background: '#fff',
+          customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-success' },
         });
-        const data = await response.json();
-        console.log('DEBUG: Verification response:', data, 'Status:', response.status);
-        if (response.status === 200) {
-          setStatus(`Payment verified! Ticket token: ${data.ticket_token} (${data.ticket_type})`);
-          Swal.fire({
-            icon: 'success',
-            title: 'Payment Successful',
-            text: `Ticket Token: ${data.ticket_token} (${data.ticket_type})`,
-            confirmButtonColor: '#28a745',
-            background: '#fff',
-            customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-success' },
-          });
-          setTimeout(() => navigate('/movies'), 5000); // Increased timeout for readability
-        } else {
-          setStatus(`Payment verification failed: ${data.message || 'Unknown error'}`);
-          Swal.fire({
-            icon: 'error',
-            title: 'Payment Error',
-            text: `${data.message || 'Unknown error'} ${data.error ? JSON.stringify(data.error) : ''}`,
-            confirmButtonColor: '#dc3545',
-            background: '#fff',
-            customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
-          });
-          setTimeout(() => navigate('/movies'), 5000);
-        }
-      } catch (error) {
-        console.error('DEBUG: Verification error:', error);
+        setTimeout(() => navigate('/movies'), 10000); // Increased to 10 seconds
+      } else {
+        setStatus(`Payment verification failed: ${data.message || 'Unknown error'}`);
+        Swal.fire({
+          icon: 'error',
+          title: 'Payment Error',
+          text: `${data.message || 'Unknown error'} ${data.error ? JSON.stringify(data.error) : ''}`,
+          confirmButtonColor: '#dc3545',
+          background: '#fff',
+          customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
+        });
+        setTimeout(() => navigate('/movies'), 10000);
+      }
+    } catch (error) {
+      console.error('DEBUG: Verification error:', error);
+      if (retryCount < maxRetries) {
+        console.log(`DEBUG: Retrying payment verification, attempt ${retryCount + 1}`);
+        setTimeout(() => verifyPayment(reference, retryCount + 1, maxRetries), 2000);
+      } else {
         setStatus(`Error verifying payment: ${error.message}`);
         Swal.fire({
           icon: 'error',
@@ -70,10 +58,28 @@ const PaymentCallback = () => {
           background: '#fff',
           customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
         });
-        setTimeout(() => navigate('/movies'), 5000);
+        setTimeout(() => navigate('/movies'), 10000);
       }
-    };
-    verifyPayment();
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const reference = params.get('reference') || params.get('trxref');
+    if (!reference) {
+      setStatus('Error: No payment reference provided');
+      Swal.fire({
+        icon: 'error',
+        title: 'Payment Error',
+        text: 'No payment reference provided',
+        confirmButtonColor: '#dc3545',
+        background: '#fff',
+        customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-danger' },
+      });
+      setTimeout(() => navigate('/movies'), 10000);
+      return;
+    }
+    verifyPayment(reference);
   }, [location, navigate, authTokens?.token]);
 
   return (

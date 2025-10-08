@@ -30,7 +30,7 @@ const PaymentCallback = () => {
           background: '#fff',
           customClass: { popup: 'shadow-lg', confirmButton: 'btn btn-success' },
         });
-        setTimeout(() => navigate('/movies'), 10000); // Increased to 10 seconds
+        setTimeout(() => navigate(`/payment-status?reference=${reference}`), 10000);
       } else {
         setStatus(`Payment verification failed: ${data.message || 'Unknown error'}`);
         Swal.fire({

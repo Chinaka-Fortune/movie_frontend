@@ -9,7 +9,8 @@
 /coverage
 
 # production
-#/build
+/build
+/dist
 
 # misc
 .env
@@ -22,3 +23,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+build/
+dist/
+node_modules/
